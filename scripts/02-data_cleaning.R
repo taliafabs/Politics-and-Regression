@@ -11,34 +11,54 @@
 library(tidyverse)
 
 #### Clean data ####
-raw_data <- read_csv("inputs/data/plane_data.csv")
 
-cleaned_data <-
-  raw_data |>
-  janitor::clean_names() |>
-  select(wing_width_mm, wing_length_mm, flying_time_sec_first_timer) |>
-  filter(wing_width_mm != "caw") |>
+## get the raw data
+ces2020 <-
+  read_csv(
+    here::here("data/raw_data/ces2020.csv"),
+    col_types =
+      cols(
+        "votereg" = col_integer(),
+        "CC20_410" = col_integer(),
+        "gender" = col_integer(),
+        "educ" = col_integer()
+      )
+  )
+
+ces2020
+
+
+ces2020 <-
+  ces2020 |>
+  filter(votereg == 1,
+         CC20_410 %in% c(1, 2)) |>
   mutate(
-    flying_time_sec_first_timer = if_else(flying_time_sec_first_timer == "1,35",
-                                   "1.35",
-                                   flying_time_sec_first_timer)
+    voted_for = if_else(CC20_410 == 1, "Biden", "Trump"),
+    voted_for = as_factor(voted_for),
+    gender = if_else(gender == 1, "Male", "Female"),
+    education = case_when(
+      educ == 1 ~ "No HS",
+      educ == 2 ~ "High school graduate",
+      educ == 3 ~ "Some college",
+      educ == 4 ~ "2-year",
+      educ == 5 ~ "4-year",
+      educ == 6 ~ "Post-grad"
+    ),
+    education = factor(
+      education,
+      levels = c(
+        "No HS",
+        "High school graduate",
+        "Some college",
+        "2-year",
+        "4-year",
+        "Post-grad"
+      )
+    )
   ) |>
-  mutate(wing_width_mm = if_else(wing_width_mm == "490",
-                                 "49",
-                                 wing_width_mm)) |>
-  mutate(wing_width_mm = if_else(wing_width_mm == "6",
-                                 "60",
-                                 wing_width_mm)) |>
-  mutate(
-    wing_width_mm = as.numeric(wing_width_mm),
-    wing_length_mm = as.numeric(wing_length_mm),
-    flying_time_sec_first_timer = as.numeric(flying_time_sec_first_timer)
-  ) |>
-  rename(flying_time = flying_time_sec_first_timer,
-         width = wing_width_mm,
-         length = wing_length_mm
-         ) |> 
-  tidyr::drop_na()
+  select(voted_for, gender, education)
+
 
 #### Save data ####
-write_csv(cleaned_data, "outputs/data/analysis_data.csv")
+## save the cleaned data as a parquet
+write_parquet(ces2020, "data/analysis_data/analysis_data.parquet")
